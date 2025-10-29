@@ -12,7 +12,7 @@ async function bootstrap() {
   );
   const configService = app.get(ConfigService);
   const appPort = configService.get<number>('APP_PORT') || 3003;
-  const grpcUrl = configService.get<string>('GRPC_URL')!;
+  const grpcUrl = configService.get<string>('GRPC_URL') || '0.0.0.0:50053';
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,
@@ -22,12 +22,15 @@ async function bootstrap() {
       url: grpcUrl,
       loader: {
         keepCase: true,
+        longs: String,
       }
     }
   })
   
-
   await app.startAllMicroservices();
   await app.listen(appPort);
+
+  console.log(`Application running on port: ${appPort}`);
+  console.log(`Micro service running on ${grpcUrl}`);
 }
 bootstrap();

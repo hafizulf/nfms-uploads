@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { EnvValidationSchema, formatEnvErrors } from './config/env-validation.config';
+import { UploadModule } from './modules/upload/app.module';
 
 @Module({
   imports: [
@@ -18,9 +19,10 @@ import { EnvValidationSchema, formatEnvErrors } from './config/env-validation.co
         if(!result.success) {
           throw new Error(JSON.stringify(formatEnvErrors(result.error)));
         }
-        return result;
+        return result.data;
       }
-    })
+    }),
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
