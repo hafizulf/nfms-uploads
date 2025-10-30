@@ -7,19 +7,13 @@ message UploadUserImgRequest {
   string filename  = 3;
   string mime_type = 4;
   uint32 size      = 5;   // bytes length
-  string trace_id  = 6;
 }
 
 message UploadUserImgResponse {
   string user_id     = 1;
   string object_key  = 2; // canonical storage key
   string url         = 3;
-  string mime_type   = 4;
-  uint32 size        = 5;
-  string checksum    = 6;
-  uint32 width       = 7;
-  uint32 height      = 8;
-  int64  created_at  = 9;
+  int64  created_at  = 4;
 }
 
 service UploadService {

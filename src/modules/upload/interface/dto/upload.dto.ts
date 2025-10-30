@@ -21,10 +21,6 @@ export class UploadUserImageRequest {
   @IsInt()
   @Min(0)
   size!: number;
-
-  @IsNotEmpty()
-  @IsString()
-  trace_id!: string;
 }
 
 export class UploadUserImageResponse {
@@ -34,7 +30,5 @@ export class UploadUserImageResponse {
   mime_type: string;
   size: number;
   checksum: string;
-  width: number;
-  height: number;
   created_at: number;
 }

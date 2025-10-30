@@ -3,7 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { EnvValidationSchema, formatEnvErrors } from './config/env-validation.config';
-import { UploadModule } from './modules/upload/app.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [

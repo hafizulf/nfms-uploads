@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.920.0",
+    "@aws-sdk/s3-request-presigner": "^3.920.0",
     "@grpc/grpc-js": "^1.14.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -29,8 +31,11 @@
     "@nestjs/platform-fastify": "^11.1.7",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "install": "^0.13.0",
+    "npm": "^11.6.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.4",
     "zod": "^4.1.12"
   },
   "devDependencies": {
