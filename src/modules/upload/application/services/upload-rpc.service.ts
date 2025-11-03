@@ -8,6 +8,8 @@ import path from "path";
 import sharp from "sharp";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { RpcException } from "@nestjs/microservices";
+import { status } from "@grpc/grpc-js";
+import { throwAwsGrpc } from "src/libs/aws/aws.exception";
 
 @Injectable()
 export class UploadRpcService {
@@ -36,27 +38,29 @@ export class UploadRpcService {
         (path.extname(filename).replace('.', '') || 'bin');
       const key = `users/${user_id}/avatar.${extFromMime}`;
 
-      await this.aws.s3().send(new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-        Body: buf,
-        ContentType: mime_type,
-        ContentMD5: md5B64,
-        Metadata: { 'x-checksum-sha256': sha256Hex },
-        ACL: 'private',
-      }));
+      try {
+        await this.aws.s3().send(new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+          Body: buf,
+          ContentType: mime_type,
+          ContentMD5: md5B64,
+          Metadata: { 'x-checksum-sha256': sha256Hex },
+          ACL: 'private',
+        }));
+      } catch (e: any) {
+        throwAwsGrpc(e, 'PutObject');
+      }
 
-      let url: string;
+      let url = '';
       try {
         url = await getSignedUrl(
           this.aws.s3(),
           new GetObjectCommand({ Bucket: this.bucketName, Key: key }),
           { expiresIn: 900 },
         );
-        console.log('[uploadUserImage] success');
-      } catch (e) {
-        console.error('[uploadUserImage] signing failed:', (e as Error).message);
-        url = '';
+      } catch (e: any) {
+        throwAwsGrpc(e, 'GetSignedUrl');
       }
 
       return {
@@ -70,7 +74,7 @@ export class UploadRpcService {
       };
     } catch (err: any) {
       console.error('[uploadUserImage] error:', err?.message);
-      throw new RpcException({ code: 'UPLOAD_FAILED', message: err?.message || 'Upload failed' });
+      throw new RpcException({ code: status.INTERNAL, message: err?.message });
     }
   }
 }
