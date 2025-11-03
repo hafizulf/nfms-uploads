@@ -1,8 +1,8 @@
-import { Injectable } from "@nestjs/common";
-import { UploadUserImageResponse, UploadUserImageRequest } from "../../interface/dto/upload.dto";
+import { Injectable, Logger } from "@nestjs/common";
+import { UploadUserImageResponse, UploadUserImageRequest, DeleteUserImageRequest, DeleteUserImageResponse } from "../../interface/dto/upload.dto";
 import { AwsClient } from "src/libs/aws/aws-client";
 import { ConfigService } from "@nestjs/config";
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import path from "path";
 import sharp from "sharp";
@@ -48,6 +48,8 @@ export class UploadRpcService {
           Metadata: { 'x-checksum-sha256': sha256Hex },
           ACL: 'private',
         }));
+
+        Logger.log(`[uploadUserImage] ${key} uploaded`);
       } catch (e: any) {
         throwAwsGrpc(e, 'PutObject');
       }
@@ -76,5 +78,34 @@ export class UploadRpcService {
       console.error('[uploadUserImage] error:', err?.message);
       throw new RpcException({ code: status.INTERNAL, message: err?.message });
     }
+  }
+
+  async deleteUserImage(req: DeleteUserImageRequest): Promise<DeleteUserImageResponse> {
+    const { user_id, object_key } = req;
+    if (!object_key.startsWith(`users/${user_id}/`)) {
+      throw new RpcException({
+        code: status.PERMISSION_DENIED,
+        message: 'DeleteObject failed: PERMISSION_DENIED',
+        details: 'object_key does not belong to this user',
+      } as any);
+    }
+
+    try {
+      await this.aws.s3().send(new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: object_key,
+      }));
+
+      Logger.log(`[deleteUserImage] ${object_key} deleted`);
+    } catch (e) {
+      throwAwsGrpc(e, 'DeleteObject');
+    }
+
+    return {
+      user_id,
+      object_key,
+      deleted: true,
+      deleted_at: Date.now(),
+    };
   }
 }
