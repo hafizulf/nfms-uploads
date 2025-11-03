@@ -28,7 +28,23 @@ message DeleteUserImgResponse {
   int64 deleted_at = 4;
 }
 
+message GetUserImgRequest {
+  string user_id    = 1;
+  string object_key = 2;
+  bool   inline     = 3;      // suggest browser inline display
+  uint32 expires_in = 4;      // seconds; default 900
+}
+
+message GetUserImgResponse {
+  string user_id    = 1;
+  string object_key = 2;
+  string url        = 3;
+  string mime_type  = 4;
+  int64  expires_at = 5;      // epoch millis
+}
+
 service UploadService {
   rpc UploadUserImage(UploadUserImgRequest) returns (UploadUserImgResponse) {}
   rpc DeleteUserImage(DeleteUserImgRequest) returns (DeleteUserImgResponse) {}
+  rpc GetUserImage(GetUserImgRequest)      returns (GetUserImgResponse) {}
 }

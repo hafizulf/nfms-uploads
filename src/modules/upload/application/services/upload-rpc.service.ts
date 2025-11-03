@@ -1,8 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { UploadUserImageResponse, UploadUserImageRequest, DeleteUserImageRequest, DeleteUserImageResponse } from "../../interface/dto/upload.dto";
+import { 
+  UploadUserImageResponse,
+  UploadUserImageRequest,
+  DeleteUserImageRequest, 
+  DeleteUserImageResponse,
+  GetUserImageRequest,
+  GetUserImageResponse 
+} from "../../interface/dto/upload.dto";
 import { AwsClient } from "src/libs/aws/aws-client";
 import { ConfigService } from "@nestjs/config";
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import path from "path";
 import sharp from "sharp";
@@ -10,6 +17,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { RpcException } from "@nestjs/microservices";
 import { status } from "@grpc/grpc-js";
 import { throwAwsGrpc } from "src/libs/aws/aws.exception";
+import { IMAGE_CONSTS } from "src/modules/common/const/image.const";
 
 @Injectable()
 export class UploadRpcService {
@@ -106,6 +114,58 @@ export class UploadRpcService {
       object_key,
       deleted: true,
       deleted_at: Date.now(),
+    };
+  }
+
+  async getUserImage(req: GetUserImageRequest): Promise<GetUserImageResponse> {
+    const { user_id, object_key, inline = true } = req;
+    const expires = req.expires_in && req.expires_in > 0 ? req.expires_in : IMAGE_CONSTS.EXPIRES_IN;
+
+    const key = object_key?.trim() ?? '';
+    if (!key.startsWith(`users/${user_id}/`)) {
+      throw new RpcException({
+        code: status.PERMISSION_DENIED,
+        message: 'GetObject failed: PERMISSION_DENIED',
+        details: 'object_key does not belong to this user',
+      } as any);
+    }
+
+    let mime = 'application/octet-stream';
+    try {
+      const head = await this.aws.s3().send(new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      }));
+      mime = head.ContentType ?? mime;
+    } catch (e) {
+      throwAwsGrpc(e, 'GetObjectHead');
+    }
+
+    const disposition = inline ? 'inline' : 'attachment';
+    let url: string;
+    try {
+      url = await getSignedUrl(
+        this.aws.s3(),
+        new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+          ResponseContentType: mime,
+          ResponseContentDisposition: `${disposition}; filename="avatar"`,
+        }),
+        { expiresIn: expires },
+      );
+    } catch (e) {
+      throwAwsGrpc(e, 'GetSignedUrl');
+    }
+
+    Logger.log(`[getUserImage] ${key} fetched`);
+
+    return {
+      user_id,
+      object_key: key,
+      url,
+      mime_type: mime,
+      expires_at: Date.now() + expires * 1000,
     };
   }
 }

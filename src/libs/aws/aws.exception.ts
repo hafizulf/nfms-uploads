@@ -1,7 +1,7 @@
 import { Metadata, status } from "@grpc/grpc-js";
 import { RpcException } from "@nestjs/microservices";
 
-export type AwsOp = 'PutObject' | 'GetSignedUrl' | 'GetObject' | 'DeleteObject';
+export type AwsOp = 'PutObject' | 'GetSignedUrl' | 'GetObject' | 'DeleteObject' | 'GetObjectHead';
 
 function mapAwsToGrpc(e: any): number {
   const http = e?.$metadata?.httpStatusCode;
@@ -28,28 +28,49 @@ function mapAwsToGrpc(e: any): number {
 }
 
 export function throwAwsGrpc(e: any, op: AwsOp): never {
+  const http = e?.$metadata?.httpStatusCode as number | undefined;
   const md = new Metadata();
+
   if (e?.$metadata?.requestId) md.add('aws-request-id', String(e.$metadata.requestId));
-  if (e?.$metadata?.httpStatusCode) md.add('aws-http', String(e.$metadata.httpStatusCode));
+  if (http) md.add('aws-http', String(http));
   if (e?.name) md.add('aws-error', String(e.name));
   md.add('aws-op', op);
 
-  const name = e?.name ?? 'AwsError';
-  const message = `S3 ${op} failed: ${name}`;
-  const details = e?.message
-    ? `${name}: ${e.message}`
-    : message;
+  // --- Normalize common cases with poor messages ---
+  let grpcCode = mapAwsToGrpc(e);
+
+  let name = e?.name ?? 'AwsError';
+  let message = `S3 ${op} failed: ${name}`;
+  let details = e?.message ? `${name}: ${e.message}` : message;
+
+  // S3 404 (NoSuchKey / HeadObject typically): give deterministic text
+  if (http === 404 && (op === 'GetObject' || op === 'GetSignedUrl' || op === 'GetObjectHead')) {
+    name = 'NoSuchKey';
+    md.set('aws-error', name); // overwrite for consistency
+    message = `S3 ${op} failed: ${name}`;
+    details = 'Object not found';
+  }
+
+  // S3 403 (AccessDenied) — make it explicit
+  if (http === 403 && (op === 'GetObject' || op === 'GetSignedUrl' || op === 'GetObjectHead')) {
+    name = 'AccessDenied';
+    md.set('aws-error', name);
+    message = `S3 ${op} failed: ${name}`;
+    details = 'Access denied by S3 policy or KMS';
+  }
+  // --- end normalize ---
+
 
   console.error('[AWS ERROR]', {
     op,
     awsError: name,
-    httpStatus: e?.$metadata?.httpStatusCode,
+    httpStatus: http,
     requestId: e?.$metadata?.requestId,
-    message: e?.message,
+    rawMessage: e?.message,
   });
 
   throw new RpcException({
-    code: mapAwsToGrpc(e),
+    code: grpcCode,
     message,
     details,
     metadata: md,

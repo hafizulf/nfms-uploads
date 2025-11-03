@@ -49,3 +49,28 @@ export class DeleteUserImageResponse {
   deleted: boolean;
   deleted_at: number;
 }
+
+export class GetUserImageRequest {
+  @IsNotEmpty()
+  @IsString()
+  user_id!: string;
+
+  @IsNotEmpty()
+  @IsString()
+  object_key!: string;
+
+  inline?: boolean;
+
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  expires_in!: number;
+}
+
+export class GetUserImageResponse {
+  user_id: string;
+  object_key: string;
+  url: string;
+  mime_type: string;
+  expires_at: number;
+}
